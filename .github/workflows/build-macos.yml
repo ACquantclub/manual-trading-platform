@@ -2,43 +2,55 @@ name: macOS Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build:
     runs-on: macos-latest
 
     steps:
+    # Checkout the repository
     - uses: actions/checkout@v3
 
+    # Set up Python environment
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.11'
 
-    - name: Setup Dependencies
+    # Install dependencies
+    - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install pybind11
         python -m pip install cmake
 
-    - name: Configure CMake 
+    # Debugging: Print Python version and location
+    - name: Check Python Version
+      run: |
+        python --version
+        which python
+
+    # Configure CMake
+    - name: Configure CMake
       run: |
         mkdir -p build
         cd build
         cmake .. \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DPython_EXECUTABLE=$(which python3) \
-        -DPython_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
-        -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())")
+          -DCMAKE_BUILD_TYPE=Release \
+          -DPython_EXECUTABLE=$(which python3) \
+          -DPython_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
+          -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())")
 
+    # Build the project
     - name: Build
       working-directory: build
       run: cmake --build .
 
-    - name: Upload artifacts
+    # Upload the artifact
+    - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
         name: binary-macos
