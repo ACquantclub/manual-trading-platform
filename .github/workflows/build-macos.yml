@@ -38,4 +38,4 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: binary-macos
-        path: ${{github.workspace}}/backend/build/*.dylib
+        path: ${{github.workspace}}/backend/build/trading_core.so
