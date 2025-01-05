@@ -18,30 +18,30 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install dependencies
+    - name: Setup Environment
       run: |
         python -m pip install --upgrade pip
         python -m pip install pybind11
         python -m pip install cmake
-        python -m venv env
+        python -m venv ${{github.workspace}}/env
+        source ${{github.workspace}}/env/bin/activate
 
-    - name: Configure CMake
+    - name: Configure CMake 
       run: |
         mkdir -p build
         cd build
-        export PYTHON_PATH=$(which python3)
         cmake .. \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DPython_EXECUTABLE=$PYTHON_PATH \
-          -DPython_ROOT_DIR=${{github.workspace}}/env \
-          -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())")
+        -DCMAKE_BUILD_TYPE=Release \
+        -DPython_EXECUTABLE=${{github.workspace}}/env/bin/python3.11 \
+        -DPython_ROOT_DIR=${{github.workspace}}/env \
+        -Dpybind11_DIR=${{github.workspace}}/env/lib/python3.11/site-packages/pybind11/share/cmake/pybind11
 
     - name: Build
       working-directory: build
-      run: cmake --build . --config Release
+      run: cmake --build .
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
         name: binary-macos
-        path: build/backend/trading_core.so
+        path: backend/build/trading_core.so
