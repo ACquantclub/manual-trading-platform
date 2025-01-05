@@ -25,21 +25,23 @@ jobs:
         python -m pip install cmake
 
     - name: Create build directory
-      run: cmake -E make_directory ${{github.workspace}}/backend/build
+      run: cmake -E make_directory ${{github.workspace}}/build
 
-    - name: Configure CMake
-      working-directory: ${{github.workspace}}/backend/build
+    - name: Configure CMake 
+      working-directory: ${{github.workspace}}/build
       run: |
         cmake .. \
         -DCMAKE_BUILD_TYPE=Release \
-        -DPYTHON_EXECUTABLE=$(which python3)
+        -DPYTHON_EXECUTABLE=$(which python3) \
+        -DPYTHON_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
+        -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())")
 
     - name: Build
-      working-directory: ${{github.workspace}}/backend/build
+      working-directory: ${{github.workspace}}/build
       run: cmake --build . --config Release
 
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
         name: binary-ubuntu
-        path: ${{github.workspace}}/backend/build/trading_core.so
+        path: ${{github.workspace}}/build/backend/trading_core.so
