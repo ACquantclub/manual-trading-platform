@@ -5,14 +5,17 @@ project(manual_trading_platform)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Define Python virtual environment paths
-set(Python_ROOT_DIR "${CMAKE_SOURCE_DIR}/env")
-set(Python_EXECUTABLE "${Python_ROOT_DIR}/bin/python3.11")
-
-# Find Python and pybind11
+# Dynamically find Python
 find_package(Python 3.11 EXACT REQUIRED COMPONENTS Interpreter Development)
-set(pybind11_DIR "${Python_ROOT_DIR}/lib/python3.11/site-packages/pybind11/share/cmake/pybind11")
-find_package(pybind11 CONFIG REQUIRED)
+
+# Dynamically find pybind11
+execute_process(
+    COMMAND ${Python_EXECUTABLE} -m pybind11 --cmakedir
+    OUTPUT_VARIABLE pybind11_DIR
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+find_package(pybind11 CONFIG REQUIRED HINTS ${pybind11_DIR})
 
 # Add the backend directory
 add_subdirectory(backend)
