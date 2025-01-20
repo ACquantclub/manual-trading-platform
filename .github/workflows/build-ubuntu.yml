@@ -11,10 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    # Checkout the repository
     - uses: actions/checkout@v3
 
-    # Set up Python environment
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -27,17 +25,13 @@ jobs:
         python -m pip install pybind11
         python -m pip install cmake
 
-    # Debugging: Print Python version and location
-    - name: Check Python Version
+    # Install system dependencies
+    - name: Install System Dependencies
       run: |
-        python --version
-        which python
+        sudo apt-get update
+        sudo apt-get install -y python3-dev uuid-dev
 
-    # Install Python development headers
-    - name: Install Python Development Headers
-      run: sudo apt-get install -y python3-dev
-
-    # Configure CMake
+    # Rest of your existing configuration...
     - name: Configure CMake
       run: |
         mkdir -p build
@@ -48,12 +42,10 @@ jobs:
           -DPython_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
           -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())")
 
-    # Build the project
     - name: Build
       working-directory: build
       run: cmake --build .
 
-    # Upload the artifact
     - name: Upload Artifacts
       uses: actions/upload-artifact@v3
       with:
