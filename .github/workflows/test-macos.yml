@@ -1,4 +1,4 @@
-name: Ubuntu Build
+name: macOS Tests
 
 on:
   push:
@@ -7,12 +7,14 @@ on:
     branches: [main]
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-and-test:
+    runs-on: macos-latest
 
     steps:
+    # Checkout the repository
     - uses: actions/checkout@v3
 
+    # Set up Python environment
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
@@ -25,13 +27,13 @@ jobs:
         python -m pip install pybind11
         python -m pip install cmake
 
-    # Install system dependencies
-    - name: Install System Dependencies
+    # Debugging: Print Python version and location
+    - name: Check Python Version
       run: |
-        sudo apt-get update
-        sudo apt-get install -y python3-dev uuid-dev
+        python --version
+        which python
 
-    # Rest of your existing configuration...
+    # Configure CMake
     - name: Configure CMake
       run: |
         mkdir -p build
@@ -42,12 +44,27 @@ jobs:
           -DPython_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
           -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())")
 
+    # Build the project
     - name: Build
       working-directory: build
       run: cmake --build .
 
-    - name: Upload Artifacts
+    # Run tests
+    - name: Test
+      working-directory: build
+      run: ctest --output-on-failure -V
+
+    # Upload build artifact
+    - name: Upload Build Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: binary-ubuntu
+        name: binary-macos
         path: backend/build/trading_core.so
+
+    # Upload test results
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results-macos
+        path: build/Testing/
+      if: always()

@@ -1,20 +1,17 @@
-# Include directories for the backend
-include_directories(${Python_INCLUDE_DIRS})
-include_directories(${CMAKE_SOURCE_DIR}/backend/include)
+project(trading_backend)
 
-# Add the trading logic library
-add_library(trading_logic STATIC src/trading_logic.cpp)
-target_include_directories(trading_logic PUBLIC ${CMAKE_SOURCE_DIR}/backend/include)
+# Set backend-specific variables
+set(BACKEND_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
+set(BACKEND_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Add the pybind11 module
-pybind11_add_module(trading_core src/binding.cpp)
+# Configure include directories
+include_directories(${BACKEND_INCLUDE_DIR})
 
-# Link the trading logic library to the pybind11 module
-target_link_libraries(trading_core PRIVATE trading_logic)
+# Add the source directory
+add_subdirectory(src)
 
-# Output paths for backend artifacts
-set_target_properties(trading_core PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/backend/build
-    PREFIX ""
-    SUFFIX ".so"
-)
+# Configure testing
+if(CXXTEST_FOUND)
+    enable_testing()
+    include_directories(${CXXTEST_INCLUDE_DIR})
+endif()
