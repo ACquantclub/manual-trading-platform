@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,20 +18,17 @@ jobs:
       with:
         python-version: '3.11'
 
-    # Install dependencies
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
         python -m pip install pybind11
         python -m pip install cmake
 
-    # Install system dependencies
     - name: Install System Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y python3-dev uuid-dev
 
-    # Rest of your existing configuration...
     - name: Configure CMake
       run: |
         mkdir -p build
@@ -46,61 +43,19 @@ jobs:
       working-directory: build
       run: cmake --build .
 
-    - name: Upload Artifacts
+    - name: Test
+      working-directory: build
+      run: ctest --output-on-failure -V
+
+    - name: Upload Build Artifact
       uses: actions/upload-artifact@v3
       with:
         name: binary-ubuntu
         path: backend/build/trading_core.so
 
-  test:
-    runs-on: ubuntu-latest
-
-    steps:
-    # Checkout the repository
-    - uses: actions/checkout@v3
-
-    # Set up Python environment
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-
-    # Install dependencies
-    - name: Install Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install pybind11
-        python -m pip install cmake
-
-    # Install system dependencies
-    - name: Install System Dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y python3-dev uuid-dev
-
-    # Download build artifacts
-    - name: Download Artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: binary-ubuntu
-        path: backend/build/
-
-    # Configure CMake
-    - name: Configure CMake
-      run: |
-        mkdir -p build
-        cd build
-        cmake .. -DCMAKE_BUILD_TYPE=Release
-
-    # Run tests
-    - name: Test
-      working-directory: build
-      run: ctest --output-on-failure -V
-
-    # Upload test results
     - name: Upload Test Results
       uses: actions/upload-artifact@v3
       with:
-        name: test-results
+        name: test-results-ubuntu
         path: build/Testing/
       if: always()
