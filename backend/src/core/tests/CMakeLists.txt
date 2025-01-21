@@ -1,3 +1,9 @@
+# Find CxxTest package
+find_package(CxxTest REQUIRED)
+if(NOT CXXTEST_FOUND)
+    message(FATAL_ERROR "CxxTest not found!")
+endif()
+
 # Set test output directory
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
 

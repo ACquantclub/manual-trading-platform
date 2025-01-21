@@ -1,8 +1,6 @@
 # Core library configuration
-add_library(trading_core STATIC 
-    Order.cpp
-    Position.cpp
-)
+file(GLOB SOURCES "*.cpp")
+add_library(trading_core STATIC ${SOURCES})
 
 # Set include directories for the core library
 target_include_directories(trading_core
