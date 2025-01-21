@@ -17,6 +17,26 @@ namespace trading {
 
     struct Price {
         double value;
+
+        bool operator<(const Price& other) const {
+            return value < other.value;
+        }
+
+        bool operator>(const Price& other) const {
+            return value > other.value;
+        }
+
+        bool operator==(const Price& other) const {
+            return value == other.value;
+        }
+
+        bool operator<=(const Price& other) const {
+            return value <= other.value;
+        }
+
+        bool operator>=(const Price& other) const {
+            return value >= other.value;
+        }
     };
 
     using OrderId = std::string;

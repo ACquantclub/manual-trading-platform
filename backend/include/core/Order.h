@@ -8,7 +8,7 @@ namespace trading {
 class Order {
 public:
     Order(const std::string& symbol, Side side, Quantity qty, Price price);
-    
+
     OrderId getId() const { return id_; }
     std::string getSymbol() const { return symbol_; }
     Side getSide() const { return side_; }
