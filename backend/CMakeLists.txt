@@ -14,4 +14,7 @@ add_subdirectory(src)
 if(CXXTEST_FOUND)
     enable_testing()
     include_directories(${CXXTEST_INCLUDE_DIR})
+    
+    # Add regression tests directory
+    add_subdirectory(regress)
 endif()

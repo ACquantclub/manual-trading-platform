@@ -22,6 +22,17 @@ Position& Market::getOrCreatePosition(const Symbol& symbol) {
 }
 
 void Market::addOrder(const Order& order) {
+    // Validate order parameters
+    if (order.getQuantity() <= 0) {
+        throw std::invalid_argument("Order quantity must be greater than 0");
+    }
+    if (order.getPrice().value <= 0.0) {
+        throw std::invalid_argument("Order price must be greater than 0");
+    }
+    if (order.getSymbol().empty()) {
+        throw std::invalid_argument("Order symbol cannot be empty");
+    }
+
     auto& orderbook = getOrCreateOrderBook(order.getSymbol());
     orderbook.addOrder(order);
 }

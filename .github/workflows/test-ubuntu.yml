@@ -24,11 +24,13 @@ jobs:
         python -m pip install pybind11
         python -m pip install cmake
 
+    # Install system dependencies
     - name: Install System Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y python3-dev uuid-dev
+        sudo apt-get install -y python3-dev uuid-dev cxxtest
 
+    # Configure CMake
     - name: Configure CMake
       run: |
         mkdir -p build
@@ -37,7 +39,8 @@ jobs:
           -DCMAKE_BUILD_TYPE=Release \
           -DPython_EXECUTABLE=$(which python3) \
           -DPython_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
-          -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())")
+          -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())") \
+          -DCxxTest_DIR=/usr/share/cxxtest
 
     - name: Build
       working-directory: build

@@ -16,6 +16,7 @@ public:
     Quantity getQuantity() const { return quantity_; }
     Price getPrice() const { return price_; }
     Timestamp getTimestamp() const { return timestamp_; }
+    Side getSide() const { return Side::BUY; }
 
 private:
     OrderId buy_order_id_;
