@@ -38,6 +38,12 @@ jobs:
       run: |
         brew install cxxtest
 
+    # Add CxxTest headers to include path
+    - name: Export CxxTest Include Path
+      run: |
+        export CXXTEST_DIR=$(brew --prefix cxxtest)/share/cxxtest
+        echo "CXXTEST_DIR=$CXXTEST_DIR" >> $GITHUB_ENV
+
     # Configure CMake
     - name: Configure CMake
       run: |
