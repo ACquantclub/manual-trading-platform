@@ -1,6 +1,10 @@
 # Add core library
 add_subdirectory(core)
 
+if(CXXTEST_FOUND)
+    add_subdirectory(system_tests)
+endif()
+
 # Configure Python bindings
 pybind11_add_module(trading ${CMAKE_SOURCE_DIR}/backend/bindings/bindings.cpp)
 
