@@ -33,6 +33,11 @@ jobs:
         python --version
         which python
 
+    # Install CxxTest
+    - name: Install CxxTest
+      run: |
+        brew install cxxtest
+
     # Configure CMake
     - name: Configure CMake
       run: |
@@ -41,8 +46,7 @@ jobs:
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DPython_EXECUTABLE=$(which python3) \
-          -DPython_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
-          -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())")
+          -DCxxTest_DIR=$(brew --prefix cxxtest)/share/cmake/CxxTest
 
     # Build the project
     - name: Build
