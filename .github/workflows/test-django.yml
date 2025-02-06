@@ -1,0 +1,74 @@
+name: Ubuntu Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install pybind11
+        python -m pip install cmake
+
+    # Install system dependencies
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-dev uuid-dev cxxtest
+
+    # Configure CMake
+    - name: Configure CMake
+      run: |
+        mkdir -p build
+        cd build
+        cmake .. \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DPython_EXECUTABLE=$(which python3) \
+          -DPython_ROOT_DIR=$(python3 -c "import sys; print(sys.prefix)") \
+          -Dpybind11_DIR=$(python3 -c "import pybind11; print(pybind11.get_cmake_dir())") \
+          -DCxxTest_DIR=/usr/share/cxxtest
+
+    - name: Build
+      working-directory: build
+      run: cmake --build .
+
+    - name: Test
+      working-directory: build
+      run: ctest --output-on-failure -V
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary-ubuntu
+        path: backend/build/trading_core.so
+
+    # Add Python environment setup and tests
+    - name: Setup Python Environment
+      run: |
+        python -m pip install -r requirements.txt
+        python -m pip install -e .
+
+    - name: Run Python Tests
+      working-directory: trading_engine
+      run: |
+        python manage.py test exchange.tests_unit --verbosity=2
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary-ubuntu
+        path: backend/build/trading_core.so
