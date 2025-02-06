@@ -1,4 +1,4 @@
-name: Ubuntu Tests
+name: C++ Tests
 
 on:
   push:
