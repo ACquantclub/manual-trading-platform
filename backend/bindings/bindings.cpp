@@ -1,5 +1,8 @@
 #include <pybind11/pybind11.h>
 #include "core/Order.h"
+#include "core/Trade.h"
+#include "core/OrderBook.h"
+#include "core/Market.h"
 #include "core/Position.h"
 
 namespace py = pybind11;
@@ -35,4 +38,34 @@ PYBIND11_MODULE(trading, m) {
         .def("getQuantity", &Position::getQuantity)
         .def("getAveragePrice", &Position::getAveragePrice)
         .def("getSymbol", &Position::getSymbol);
+
+        py::class_<Trade>(m, "Trade")
+        .def("getBuyOrderId", &Trade::getBuyOrderId)
+        .def("getSellOrderId", &Trade::getSellOrderId)
+        .def("getSymbol", &Trade::getSymbol)
+        .def("getQuantity", &Trade::getQuantity)
+        .def("getPrice", &Trade::getPrice)
+        .def("getTimestamp", &Trade::getTimestamp)
+        .def("getSide", &Trade::getSide);
+
+    py::class_<OrderBook>(m, "OrderBook")
+        .def(py::init<const Symbol&>())
+        .def("addOrder", &OrderBook::addOrder)
+        .def("cancelOrder", &OrderBook::cancelOrder)
+        .def("matchOrders", &OrderBook::matchOrders)
+        .def("getSymbol", &OrderBook::getSymbol)
+        .def("hasOrder", &OrderBook::hasOrder)
+        .def("getOrder", &OrderBook::getOrder)
+        .def("getOrders", &OrderBook::getOrders);
+
+    py::class_<Market>(m, "Market")
+        .def(py::init<>())
+        .def("addOrder", &Market::addOrder)
+        .def("cancelOrder", &Market::cancelOrder)
+        .def("hasOrderBook", &Market::hasOrderBook)
+        .def("getOrderBook", &Market::getOrderBook, py::return_value_policy::reference)
+        .def("getTradesForSymbol", &Market::getTradesForSymbol)
+        .def("getPosition", py::overload_cast<const Symbol&>(&Market::getPosition, py::const_))
+        .def("getAllPositions", &Market::getAllPositions)
+        .def("matchOrders", &Market::matchOrders);
 }
