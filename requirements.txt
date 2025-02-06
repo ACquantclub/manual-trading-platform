@@ -1,0 +1,13 @@
+asgiref==3.8.1
+coverage==7.6.10
+Django==5.1.6
+iniconfig==2.0.0
+logger==1.4
+packaging==24.2
+pluggy==1.5.0
+pybind11==2.13.6
+pytest==8.3.4
+pytest-cov==6.0.0
+pytest-django==4.9.0
+sqlparse==0.5.3
+trading==0.0.0

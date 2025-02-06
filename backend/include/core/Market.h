@@ -13,6 +13,9 @@ namespace trading {
 
 class Market {
 public:
+    // Add Order Book
+    void addOrderBook(OrderBook* orderBook);
+
     // Order Processing
     void addOrder(const Order& order);
     void cancelOrder(const OrderId& orderId);

@@ -1,4 +1,4 @@
-name: Ubuntu Build
+name: Ubuntu Tests
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,7 +18,6 @@ jobs:
       with:
         python-version: '3.11'
 
-    # Install dependencies
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
@@ -47,7 +46,35 @@ jobs:
       working-directory: build
       run: cmake --build .
 
-    - name: Upload Artifacts
+    - name: Test
+      working-directory: build
+      run: ctest --output-on-failure -V
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: binary-ubuntu
+        path: backend/build/trading_core.so
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-ubuntu
+        path: build/Testing/
+      if: always()
+
+    # Add Python environment setup and tests
+    - name: Setup Python Environment
+      run: |
+        python -m pip install -r requirements.txt
+        python -m pip install -e .
+
+    - name: Run Python Tests
+      working-directory: trading_engine
+      run: |
+        python manage.py test exchange.tests_unit --verbosity=2
+
+    - name: Upload Build Artifact
       uses: actions/upload-artifact@v4
       with:
         name: binary-ubuntu

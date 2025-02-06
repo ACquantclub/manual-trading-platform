@@ -1,4 +1,6 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+#include <pybind11/operators.h>
 #include "core/Order.h"
 #include "core/Trade.h"
 #include "core/OrderBook.h"
@@ -61,6 +63,7 @@ PYBIND11_MODULE(trading, m) {
     py::class_<Market>(m, "Market")
         .def(py::init<>())
         .def("addOrder", &Market::addOrder)
+        .def("addOrderBook", &Market::addOrderBook, py::keep_alive<1, 2>())
         .def("cancelOrder", &Market::cancelOrder)
         .def("hasOrderBook", &Market::hasOrderBook)
         .def("getOrderBook", &Market::getOrderBook, py::return_value_policy::reference)

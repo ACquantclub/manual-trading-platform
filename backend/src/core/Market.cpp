@@ -12,6 +12,21 @@ OrderBook& Market::getOrCreateOrderBook(const Symbol& symbol) {
     return *it->second;
 }
 
+void Market::addOrderBook(OrderBook* orderBook) {
+    if (!orderBook) return;
+    
+    auto symbol = orderBook->getSymbol();
+    auto it = order_books_.find(symbol);
+    
+    // Clean up existing order book if present
+    if (it != order_books_.end()) {
+        order_books_.erase(it);
+    }
+    
+    // Take ownership of the new order book
+    order_books_[symbol] = std::unique_ptr<OrderBook>(orderBook);
+}
+
 Position& Market::getOrCreatePosition(const Symbol& symbol) {
     auto it = positions_.find(symbol);
     if (it == positions_.end()) {
