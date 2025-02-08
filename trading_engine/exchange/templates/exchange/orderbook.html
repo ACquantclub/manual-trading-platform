@@ -1,0 +1,61 @@
+{% extends 'exchange/base.html' %}
+
+{% block content %}
+<h1>Place Order</h1>
+<form method="post" action="{% url 'place_order' %}">
+    {% csrf_token %}
+    <p>
+        <label>Symbol:</label>
+        <select name="symbol">
+            {% for pair in trading_pairs %}
+            <option value="{{ pair.symbol }}">{{ pair.symbol }}</option>
+            {% endfor %}
+        </select>
+    </p>
+    <p>
+        <label>Side:</label>
+        <select name="side">
+            <option value="BUY">Buy</option>
+            <option value="SELL">Sell</option>
+        </select>
+    </p>
+    <p>
+        <label>Quantity:</label>
+        <input type="number" name="quantity" step="0.00000001" required>
+    </p>
+    <p>
+        <label>Price:</label>
+        <input type="number" name="price" step="0.01" required>
+    </p>
+    <button type="submit">Place Order</button>
+</form>
+
+<h2>Your Orders</h2>
+<table border="1">
+    <tr>
+        <th>Symbol</th>
+        <th>Side</th>
+        <th>Quantity</th>
+        <th>Price</th>
+        <th>Status</th>
+        <th>Action</th>
+    </tr>
+    {% for order in orders %}
+    <tr>
+        <td>{{ order.trading_pair.symbol }}</td>
+        <td>{{ order.side }}</td>
+        <td>{{ order.quantity }}</td>
+        <td>{{ order.price }}</td>
+        <td>{{ order.status }}</td>
+        <td>
+            {% if order.status == 'NEW' %}
+            <form method="post" action="{% url 'cancel_order' order.order_id %}">
+                {% csrf_token %}
+                <button type="submit">Cancel</button>
+            </form>
+            {% endif %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
