@@ -1,0 +1,199 @@
+{% extends 'exchange/base.html' %}
+{% load custom_filters %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Balances Section -->
+    <h2>Your Balances</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Currency</th>
+                <th>Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for balance in balances %}
+            <tr>
+                <td>{{ balance.currency }}</td>
+                <td>{{ balance.amount|floatformat:8 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Order Form Section -->
+    <h2>Place Order</h2>
+    <form id="orderForm" onsubmit="submitOrder(event)">
+        {% csrf_token %}
+        <p>
+            <label for="symbol">Trading Pair:</label>
+            <select name="symbol" id="symbol" required>
+                {% for pair in trading_pairs %}
+                <option value="{{ pair.symbol }}" 
+                        data-base="{{ pair.base_currency }}" 
+                        data-quote="{{ pair.quote_currency }}"
+                        data-min-quantity="{{ pair.min_quantity }}">
+                    {{ pair.symbol }} ({{ pair.base_currency }}/{{ pair.quote_currency }})
+                </option>
+                {% endfor %}
+            </select>
+        </p>
+        <p>
+            <label for="side">Side:</label>
+            <select name="side" id="side" required>
+                <option value="BUY">Buy</option>
+                <option value="SELL">Sell</option>
+            </select>
+        </p>
+        <p>
+            <label for="quantity">Quantity:</label>
+            <input type="number" name="quantity" id="quantity" step="0.00000001" min="0" required>
+            <span id="base-currency"></span>
+        </p>
+        <p>
+            <label for="price">Price:</label>
+            <input type="number" name="price" id="price" step="0.01" min="0" required>
+            <span id="quote-currency"></span>
+        </p>
+        <p>
+            <label>Total:</label>
+            <span id="total-amount">0.00</span>
+            <span id="total-currency"></span>
+        </p>
+        <button type="submit">Place Order</button>
+    </form>
+
+    <!-- Orders Table Section -->
+    <h2>Your Orders</h2>
+    <table border="1">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Symbol</th>
+                <th>Side</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+                <td>{{ order.created_at|date:"Y-m-d H:i:s" }}</td>
+                <td>{{ order.trading_pair.symbol }}</td>
+                <td>{{ order.side }}</td>
+                <td>{{ order.quantity|floatformat:8 }}</td>
+                <td>{{ order.price|floatformat:2 }}</td>
+                <td>{{ order.quantity|multiply:order.price|floatformat:2 }}</td>
+                <td>{{ order.status }}</td>
+                <td>
+                    {% if order.status == 'NEW' %}
+                    <button onclick="cancelOrder('{{ order.order_id }}')">Cancel</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div id="orderStatus"></div>
+</div>
+
+{{ trading_pairs_json|json_script:"trading-pairs-data" }}
+{{ orders_json|json_script:"orders-data" }}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const tradingPairs = JSON.parse(document.getElementById('trading-pairs-data').textContent);
+    const orders = JSON.parse(document.getElementById('orders-data').textContent);
+
+    // Update currency labels and calculate totals when trading pair changes
+    document.getElementById('symbol').addEventListener('change', function() {
+        const selected = this.options[this.selectedIndex];
+        document.getElementById('base-currency').textContent = selected.dataset.base;
+        document.getElementById('quote-currency').textContent = selected.dataset.quote;
+        calculateTotal();
+    });
+
+    // Calculate and update total when quantity or price changes
+    document.getElementById('quantity').addEventListener('input', calculateTotal);
+    document.getElementById('price').addEventListener('input', calculateTotal);
+
+    function calculateTotal() {
+        const quantity = parseFloat(document.getElementById('quantity').value) || 0;
+        const price = parseFloat(document.getElementById('price').value) || 0;
+        const total = quantity * price;
+        document.getElementById('total-amount').textContent = total.toFixed(2);
+    }
+
+    function submitOrder(event) {
+        event.preventDefault();
+        const form = event.target;
+        const data = {
+            symbol: form.symbol.value,
+            side: form.side.value,
+            quantity: parseFloat(form.quantity.value),
+            price: parseFloat(form.price.value)
+        };
+    
+        fetch('/place-order/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(data)
+        })
+        .then(async response => {
+            const text = await response.text();
+            try {
+                const result = JSON.parse(text);
+                if (!response.ok) {
+                    throw new Error(result.error || `HTTP error! status: ${response.status}`);
+                }
+                location.reload();  // Refresh page to show new order
+            } catch (e) {
+                throw new Error(`Server error: ${text}`);
+            }
+        })
+        .catch(error => {
+            const statusDiv = document.getElementById('orderStatus');
+            statusDiv.textContent = `Error placing order: ${error.message}`;
+            statusDiv.style.color = 'red';
+        });
+    }
+
+    function cancelOrder(orderId) {
+        if (!confirm('Are you sure you want to cancel this order?')) {
+            return;
+        }
+
+        fetch(`/cancel-order/${orderId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                location.reload();
+            }
+        })
+        .catch(error => {
+            alert(`Error cancelling order: ${error.message}`);
+        });
+    }
+</script>
+{% endblock %}
