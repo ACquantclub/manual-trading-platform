@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from exchange.market_manager import MarketManager
 from exchange.models import TradingPair, TradeModel
 from django.utils.timezone import localtime
-import trading
+from trading import Side
 
 class Command(BaseCommand):
     help = 'Shows the current orderbook and recent trades for a trading pair'
@@ -18,13 +18,15 @@ class Command(BaseCommand):
             
             # Show Orderbook
             try:
-                market_manager.ensure_orderbook(symbol)
+                # Ensure orderbook exists
+                market_manager._ensure_orderbook_exists(symbol)
                 orderbook = market_manager.market.getOrderBook(symbol)
                 orders = orderbook.getOrders()
+                
                 bids = []
                 asks = []
                 for order in orders:
-                    if order.getSide() == trading.Side.BUY:
+                    if order.getSide() == Side.BUY:
                         bids.append((order.getPrice().value, order.getQuantity()))
                     else:
                         asks.append((order.getPrice().value, order.getQuantity()))
@@ -51,9 +53,7 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.SUCCESS('\nRecent Trades:'))
                 for trade in trades:
                     time = localtime(trade.timestamp).strftime('%H:%M:%S')
-                    self.stdout.write(
-                        f'  {time} - {trade.quantity:.8f} @ {trade.price:.2f}'
-                    )
+                    self.stdout.write(f'  {time}: {trade.quantity:.8f} @ {trade.price:.2f}')
             else:
                 self.stdout.write(self.style.WARNING('\nNo recent trades'))
 
@@ -65,5 +65,3 @@ class Command(BaseCommand):
                     f'Available pairs: {", ".join(available_pairs)}'
                 )
             )
-        except Exception as e:
-            self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))

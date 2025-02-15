@@ -12,7 +12,7 @@ TRADING_PAIRS = [
         'min_quantity': '1.0'
     },
     {
-        'symbol': 'GOOGLSD',
+        'symbol': 'GOOGLUSD',
         'base_currency': 'GOOGL',
         'quote_currency': 'USD',
         'min_quantity': '1.0'

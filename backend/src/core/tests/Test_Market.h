@@ -93,7 +93,8 @@ public:
     }
 
     void test_GetNonexistentOrderBook() {
-        TS_ASSERT_THROWS(market->getOrderBook("INVALID"), std::invalid_argument);
+        const trading::Market* const_market = market;
+        TS_ASSERT_THROWS(const_market->getOrderBook("INVALID"), std::invalid_argument);
     }
 
     void test_TradeHistory() {

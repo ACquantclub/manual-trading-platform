@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include "core/Order.h"
 #include "core/Trade.h"
 #include "core/OrderBook.h"
@@ -18,9 +19,15 @@ PYBIND11_MODULE(trading, m) {
         .value("FILLED", OrderStatus::FILLED)
         .value("CANCELLED", OrderStatus::CANCELLED)
         .value("REJECTED", OrderStatus::REJECTED);
-        
+
     py::class_<Price>(m, "Price")
-        .def_readwrite("value", &Price::value);
+        .def(py::init<>())
+        .def_readwrite("value", &Price::value)
+        .def("__lt__", &Price::operator<)
+        .def("__gt__", &Price::operator>)
+        .def("__eq__", &Price::operator==)
+        .def("__le__", &Price::operator<=)
+        .def("__ge__", &Price::operator>=);
         
     py::class_<Order>(m, "Order")
         .def(py::init<const std::string&, Side, Quantity, Price>())
@@ -39,7 +46,8 @@ PYBIND11_MODULE(trading, m) {
         .def("getAveragePrice", &Position::getAveragePrice)
         .def("getSymbol", &Position::getSymbol);
 
-        py::class_<Trade>(m, "Trade")
+    py::class_<Trade>(m, "Trade")
+        .def(py::init<const Order&, const Order&>())
         .def("getBuyOrderId", &Trade::getBuyOrderId)
         .def("getSellOrderId", &Trade::getSellOrderId)
         .def("getSymbol", &Trade::getSymbol)
@@ -47,6 +55,12 @@ PYBIND11_MODULE(trading, m) {
         .def("getPrice", &Trade::getPrice)
         .def("getTimestamp", &Trade::getTimestamp)
         .def("getSide", &Trade::getSide);
+
+    py::class_<Timestamp>(m, "Timestamp")
+        .def(py::init([]() { return Timestamp(); }))  // Modern style
+        .def("__repr__", [](const Timestamp& ts) {
+            return std::to_string(ts);
+        });
 
     py::class_<OrderBook>(m, "OrderBook")
         .def(py::init<const Symbol&>())
@@ -63,7 +77,12 @@ PYBIND11_MODULE(trading, m) {
         .def("addOrder", &Market::addOrder)
         .def("cancelOrder", &Market::cancelOrder)
         .def("hasOrderBook", &Market::hasOrderBook)
-        .def("getOrderBook", &Market::getOrderBook, py::return_value_policy::reference)
+        .def("getOrderBook", 
+            py::overload_cast<const Symbol&>(&Market::getOrderBook, py::const_),
+            py::return_value_policy::reference)
+        .def("getOrderBook",
+            py::overload_cast<const Symbol&>(&Market::getOrderBook),
+            py::return_value_policy::reference)
         .def("getTradesForSymbol", &Market::getTradesForSymbol)
         .def("getPosition", py::overload_cast<const Symbol&>(&Market::getPosition, py::const_))
         .def("getAllPositions", &Market::getAllPositions)

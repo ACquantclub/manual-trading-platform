@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-import trading
+from trading import Price, Order, OrderStatus, Side
 import uuid
 
 class TradingPair(models.Model):
@@ -14,14 +14,14 @@ class TradingPair(models.Model):
 
 class OrderModel(models.Model):
     ORDER_SIDE = (
-        ('BUY', trading.Side.BUY.name),
-        ('SELL', trading.Side.SELL.name),
+        ('BUY', Side.BUY.name),
+        ('SELL', Side.SELL.name),
     )
     ORDER_STATUS = (
-        ('NEW', trading.OrderStatus.NEW.name),
-        ('FILLED', trading.OrderStatus.FILLED.name),
-        ('CANCELLED', trading.OrderStatus.CANCELLED.name),
-        ('REJECTED', trading.OrderStatus.REJECTED.name),
+        ('NEW', OrderStatus.NEW.name),
+        ('FILLED', OrderStatus.FILLED.name),
+        ('CANCELLED', OrderStatus.CANCELLED.name),
+        ('REJECTED', OrderStatus.REJECTED.name),
     )
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -34,26 +34,25 @@ class OrderModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     
     def to_trading_order(self):
-        price = trading.Price()
+        """Convert to C++ Order object safely"""
+        price = Price()
         price.value = float(self.price)
         
-        # Create order with the correct side
-        side = trading.Side.BUY if self.side == 'BUY' else trading.Side.SELL
+        # Map string side to C++ enum
+        side_map = {'BUY': Side.BUY, 'SELL': Side.SELL}
+        cpp_side = side_map[self.side]
         
-        # Create order with proper symbol format
-        symbol = self.trading_pair.symbol
-        
-        # Create the order using the correct constructor
-        order = trading.Order(
-            symbol,
-            side,
+        order = Order(
+            str(self.trading_pair.symbol),  # Ensure string type
+            cpp_side,
             float(self.quantity),
             price
         )
         
-        # Update status if needed
+        # Map string status to C++ enum
         if self.status != 'NEW':
-            order.setStatus(getattr(trading.OrderStatus, self.status))
+            cpp_status = getattr(OrderStatus, self.status)
+            order.setStatus(cpp_status)
             
         return order
         

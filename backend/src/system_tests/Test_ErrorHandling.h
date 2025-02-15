@@ -16,12 +16,28 @@ public:
     }
 
     void test_InvalidOrderRejection() {
-        // Test invalid symbol
-        trading::Order emptySymbol("", trading::Side::BUY, 100, {100.0});
-        TS_ASSERT_THROWS(market->getOrderBook(""), std::invalid_argument);
+        // Test invalid symbol with const getOrderBook
+        const trading::Market* const_market = market;
+        TS_ASSERT_THROWS(const_market->getOrderBook(""), std::invalid_argument);
 
-        // Test non-existent order book
-        TS_ASSERT_THROWS(market->getOrderBook("INVALID"), std::invalid_argument);
+        // Test non-const getOrderBook (should create orderbook)
+        TS_ASSERT_THROWS_NOTHING(market->getOrderBook(""));
+
+        // Test invalid order
+        trading::Order emptySymbol("", trading::Side::BUY, 100, {100.0});
+        TS_ASSERT_THROWS(market->addOrder(emptySymbol), std::invalid_argument);
+    }
+
+    void test_OrderBookAccessErrors() {
+        // Test const access to non-existent orderbook
+        const trading::Market* const_market = market;
+        TS_ASSERT_THROWS(const_market->getOrderBook("INVALID"), std::invalid_argument);
+
+        // Test non-const access (should create orderbook)
+        TS_ASSERT_THROWS_NOTHING(market->getOrderBook("INVALID"));
+        
+        // Verify orderbook was created
+        TS_ASSERT(market->hasOrderBook("INVALID"));
     }
 
     void test_OrderCancellationErrors() {
@@ -43,7 +59,11 @@ public:
         market->addOrder(order);
         TS_ASSERT(market->hasOrderBook("AAPL"));
 
-        // Test accessing non-existent order book
-        TS_ASSERT_THROWS(market->getOrderBook("INVALID"), std::invalid_argument);
+        // Test const access to existing orderbook
+        const trading::Market* const_market = market;
+        TS_ASSERT_THROWS_NOTHING(const_market->getOrderBook("AAPL"));
+
+        // Test non-const access to existing orderbook
+        TS_ASSERT_THROWS_NOTHING(market->getOrderBook("AAPL"));
     }
 };

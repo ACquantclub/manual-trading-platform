@@ -10,12 +10,23 @@ import json
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
-import trading
+from trading import Order, Side, Price, OrderStatus
 from django.views.decorators.http import require_http_methods
 import logging
+from threading import Lock
+from django.db import transaction
+
 logger = logging.getLogger(__name__)
 
-market_manager = MarketManager()
+# Initialize market manager with proper locking
+_market_manager_lock = Lock()
+def get_market_manager():
+    global market_manager
+    if not hasattr(get_market_manager, 'market_manager'):
+        with _market_manager_lock:
+            if not hasattr(get_market_manager, 'market_manager'):
+                get_market_manager.market_manager = MarketManager()
+    return get_market_manager.market_manager
 
 @login_required
 @csrf_exempt
@@ -23,92 +34,58 @@ def place_order(request):
     try:
         with transaction.atomic():
             data = json.loads(request.body)
+            market_manager = get_market_manager()
             
-            # Validate side using enum
-            if data['side'] not in [side.name for side in trading.Side]:
-                return JsonResponse({'error': 'Invalid side'}, status=400)
-            
-            # Validate required fields
-            required_fields = ['symbol', 'side', 'quantity', 'price']
-            if not all(field in data for field in required_fields):
-                return JsonResponse({'error': 'Missing required fields'}, status=400)
-            
-            # Validate values
-            if data['quantity'] <= 0:
-                return JsonResponse({'error': 'Quantity must be positive'}, status=400)
-            if data['price'] <= 0:
-                return JsonResponse({'error': 'Price must be positive'}, status=400)
-            if data['side'] not in ['BUY', 'SELL']:
-                return JsonResponse({'error': 'Invalid side'}, status=400)
-            
-            # Check balance
-            trading_pair = TradingPair.objects.get(symbol=data['symbol'])
-            if data['side'] == 'BUY':
-                required_currency = trading_pair.quote_currency
-                required_amount = Decimal(str(data['price'])) * Decimal(str(data['quantity']))
-            else:
-                required_currency = trading_pair.base_currency
-                required_amount = Decimal(str(data['quantity']))
-                
+            # Validate trading pair first
             try:
-                balance = Balance.objects.get(
-                    user=request.user, 
-                    currency=required_currency
-                )
-                if balance.amount < required_amount:
-                    return JsonResponse({
-                        'error': f'Insufficient {required_currency} balance'
-                    }, status=400)
-                    
-                # Reserve the balance
-                balance.amount -= required_amount
-                balance.save()
-                
-            except Balance.DoesNotExist:
-                return JsonResponse({
-                    'error': f'No {required_currency} balance'
-                }, status=400)
+                trading_pair = TradingPair.objects.get(symbol=data['symbol'])
+                # Ensure orderbook exists
+                market_manager._ensure_orderbook_exists(trading_pair.symbol)
+            except TradingPair.DoesNotExist:
+                return JsonResponse({'error': 'Invalid trading pair'}, status=400)
             
-            # Create and process order
+            # Create price object for validation
+            price = Price()
+            price.value = float(data['price'])
+            
+            # Create temporary order for validation
+            try:
+                temp_order = Order(
+                    data['symbol'],
+                    Side.BUY if data['side'] == 'BUY' else Side.SELL,
+                    float(data['quantity']),
+                    price
+                )
+            except RuntimeError as e:
+                return JsonResponse({'error': f'Invalid order parameters: {str(e)}'}, status=400)
+            
+            # Create database order
             order = OrderModel.objects.create(
                 user=request.user,
                 trading_pair=trading_pair,
                 side=data['side'],
                 quantity=data['quantity'],
                 price=data['price'],
-                status=trading.OrderStatus.NEW.name  # Use enum value
+                status=OrderStatus.NEW.name
             )
             
-            trades = market_manager.add_order(order)
-            
-            # If no trades, the order stays in the book
-            if not trades:
+            try:
+                trades = market_manager.add_order(order)
                 return JsonResponse({
                     'order_id': str(order.order_id),
                     'status': 'success',
-                    'trades': []
+                    'trades': [{
+                        'price': t.getPrice().value,
+                        'quantity': t.getQuantity(),
+                        'timestamp': t.getTimestamp()
+                    } for t in trades] if trades else []
                 })
+            except RuntimeError as e:
+                return JsonResponse({'error': str(e)}, status=400)
                 
-            # Process trades and update balances
-            for trade in trades:
-                update_balances_for_trade(trade, trading_pair)
-                
-            return JsonResponse({
-                'order_id': str(order.order_id),
-                'status': 'success',
-                'trades': [
-                    {
-                        'price': trade.getPrice().value,
-                        'quantity': trade.getQuantity(),
-                        'timestamp': trade.getTimestamp()
-                    } for trade in trades
-                ]
-            })
-            
-    except TradingPair.DoesNotExist:
-        return JsonResponse({'error': 'Invalid trading pair'}, status=400)
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=400)
+        logger.error(f"Order placement failed: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal server error'}, status=500)
 
 def update_balances_for_trade(trade, trading_pair):
     """Helper function to update balances after a trade"""
@@ -168,39 +145,52 @@ def get_positions(request):
 @login_required
 def get_orderbook(request, symbol):
     try:
-        orderbook = market_manager.market.getOrderBook(symbol)
-        orders = orderbook.getOrders()
+        market_manager = get_market_manager()
+        market_manager._ensure_orderbook_exists(symbol)
         
-        bids = []
-        asks = []
-        for order in orders:
-            order_data = {
-                'price': order.getPrice().value,
-                'quantity': order.getQuantity()
-            }
-            if order.getSide() == trading.Side.BUY:
-                bids.append(order_data)
-            else:
-                asks.append(order_data)
-                
-        return JsonResponse({
-            'symbol': symbol,
-            'bids': sorted(bids, key=lambda x: x['price'], reverse=True),
-            'asks': sorted(asks, key=lambda x: x['price'])
-        })
-    except Exception as e:
+        with market_manager._operation_lock:
+            orderbook = market_manager.market.getOrderBook(symbol)
+            # Create copies of C++ objects immediately
+            orders = list(orderbook.getOrders())
+            
+            bids = []
+            asks = []
+            for order in orders:
+                order_data = {
+                    'price': order.getPrice().value,
+                    'quantity': order.getQuantity(),
+                    'id': order.getId()
+                }
+                if order.getSide() == Side.BUY:
+                    bids.append(order_data)
+                else:
+                    asks.append(order_data)
+                    
+            return JsonResponse({
+                'symbol': symbol,
+                'bids': sorted(bids, key=lambda x: x['price'], reverse=True),
+                'asks': sorted(asks, key=lambda x: x['price'])
+            })
+    except RuntimeError as e:
         return JsonResponse({'error': str(e)}, status=404)
+    except Exception as e:
+        logger.error(f"Orderbook retrieval failed: {str(e)}", exc_info=True)
+        return JsonResponse({'error': 'Internal server error'}, status=500)
     
 @login_required
 @csrf_exempt
 def cancel_order(request, order_id):
     try:
+        market_manager = get_market_manager()
         with transaction.atomic():
             order = OrderModel.objects.select_for_update().get(
                 order_id=order_id, 
                 user=request.user,
-                status=trading.OrderStatus.NEW.name  # Use enum value
+                status=OrderStatus.NEW.name
             )
+            
+            # Ensure orderbook exists before cancellation
+            market_manager._ensure_orderbook_exists(order.trading_pair.symbol)
             
             # Refund the reserved balance
             if order.side == 'BUY':
@@ -222,7 +212,7 @@ def cancel_order(request, order_id):
             market_manager.market.cancelOrder(trading_order.getId())
             
             # Update order status using enum
-            order.status = trading.OrderStatus.CANCELLED.name
+            order.status = OrderStatus.CANCELLED.name
             order.save()
             
             return JsonResponse({'status': 'success'})
@@ -234,10 +224,6 @@ def cancel_order(request, order_id):
 
 @login_required
 def home(request):
-    # Initialize orderbooks for all trading pairs
-    for pair in TradingPair.objects.all():
-        market_manager.ensure_orderbook(pair.symbol)
-
     trading_pairs_data = list(TradingPair.objects.values('symbol', 'base_currency', 'quote_currency'))
     orders_data = list(OrderModel.objects.filter(user=request.user).order_by('-created_at').values(
         'order_id',
@@ -262,25 +248,30 @@ def orderbook_view(request):
     orderbook_data = None
     
     try:
-        orderbook = market_manager.market.getOrderBook(symbol)
-        orders = orderbook.getOrders()
+        market_manager = get_market_manager()
+        market_manager._ensure_orderbook_exists(symbol)
         
-        bids = []
-        asks = []
-        for order in orders:
-            order_data = {
-                'price': order.getPrice().value,
-                'quantity': order.getQuantity()
+        with market_manager._operation_lock:
+            orderbook = market_manager.market.getOrderBook(symbol)
+            orders = orderbook.getOrders()
+            
+            bids = []
+            asks = []
+            for order in orders:
+                order_data = {
+                    'price': order.getPrice().value,
+                    'quantity': order.getQuantity()
+                }
+                if order.getSide() == Side.BUY:
+                    bids.append(order_data)
+                else:
+                    asks.append(order_data)
+                    
+            orderbook_data = {
+                'bids': sorted(bids, key=lambda x: x['price'], reverse=True),
+                'asks': sorted(asks, key=lambda x: x['price'])
             }
-            if order.getSide() == trading.Side.BUY:
-                bids.append(order_data)
-            else:
-                asks.append(order_data)
-                
-        orderbook_data = {
-            'bids': sorted(bids, key=lambda x: x['price'], reverse=True),
-            'asks': sorted(asks, key=lambda x: x['price'])
-        }
+            
     except Exception:
         pass
     

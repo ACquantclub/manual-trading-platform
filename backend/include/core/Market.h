@@ -20,6 +20,7 @@ public:
     // Market Data Queries
     bool hasOrderBook(const Symbol& symbol) const;
     const OrderBook& getOrderBook(const Symbol& symbol) const;
+    OrderBook& getOrderBook(const Symbol& symbol);
     std::vector<Trade> getTradesForSymbol(const Symbol& symbol) const;
 
     // Position tracking

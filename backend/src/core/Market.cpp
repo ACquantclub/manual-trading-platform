@@ -59,6 +59,11 @@ const OrderBook& Market::getOrderBook(const Symbol& symbol) const {
     return *it->second;
 }
 
+OrderBook& Market::getOrderBook(const Symbol& symbol) {
+    // Non-const version delegates to getOrCreateOrderBook
+    return getOrCreateOrderBook(symbol);
+}
+
 std::vector<Trade> Market::getTradesForSymbol(const Symbol& symbol) const {
     auto it = trades_.find(symbol);
     if (it == trades_.end()) {
